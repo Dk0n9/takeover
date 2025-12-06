@@ -1,0 +1,11 @@
+.:53 {
+    log
+    takeover {
+        check_resolved on
+        check_takeover on
+        cache_ttl 1d
+        webhook_url https://your-webhook-url.com/notify
+        webhook_type dingtalk
+    }
+    forward . 8.8.8.8 1.1.1.1
+}
