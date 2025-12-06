@@ -76,6 +76,7 @@ takeover是一个CoreDNS插件，用于检测域名是否过期或可能存在�
 ```
 .:53 {
     log
+    forward . 8.8.8.8 1.1.1.1
     takeover {
         check_resolved on
         check_takeover on
@@ -83,7 +84,6 @@ takeover是一个CoreDNS插件，用于检测域名是否过期或可能存在�
         webhook_url https://open.feishu.cn/open-apis/bot/v2/hook/your_webhook_key
         webhook_type feishu
     }
-    forward . 8.8.8.8 1.1.1.1
 }
 ```
 

@@ -276,7 +276,7 @@ func (c *AWSChecker) Name() string {
 
 // Check checks if a subdomain is vulnerable to AWS takeover.
 func (c *AWSChecker) Check(domain string) (bool, string, error) {
-	if strings.Contains(domain, "s3.amazonaws.com") || strings.Contains(domain, "s3.") {
+	if strings.Contains(domain, ".amazonaws.com") || strings.Contains(domain, "s3.") {
 		return true, "Potential AWS S3 bucket takeover", nil
 	}
 	return false, "", nil

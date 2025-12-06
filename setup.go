@@ -38,7 +38,7 @@ func parseConfig(c *caddy.Controller) (*Config, error) {
 	config := &Config{
 		CheckResolved:    true,
 		CheckTakeover:    true,
-		CacheTTL:         1 * time.Hour,
+		CacheTTL:         24 * time.Hour,
 		WebhookType:      WebhookTypeDingTalk,
 		takeoverCheckers: []Checker{},
 	}
@@ -63,7 +63,7 @@ func parseConfig(c *caddy.Controller) (*Config, error) {
 		// Parse any blocks
 		for c.NextBlock() {
 			switch c.Val() {
-			case "check_expiration":
+			case "check_resolved":
 				// Parse check_expiration directive
 				if !c.NextArg() {
 					return nil, c.ArgErr()
