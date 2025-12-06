@@ -102,6 +102,7 @@ func (th TakeHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns
 	// Call the next plugin in the chain
 	rcode, err := plugin.NextOrFailure(th.Name(), th.Next, ctx, nw, r)
 	if err != nil {
+		fmt.Printf("Rcode: %d Error: %s\n", rcode, err)
 		return rcode, err
 	}
 
@@ -221,18 +222,6 @@ func (th TakeHandler) checkSubdomainTakeover(domain string, resp *dns.Msg) *Chec
 				cnames = append(cnames, cname.Target)
 			}
 		}
-	} else {
-		// Fallback to direct lookup if no response provided
-		var err error
-		ips, err = net.LookupIP(domain)
-		if err != nil {
-			// If the domain doesn't resolve, it's not vulnerable
-			return &CheckResult{
-				IsVulnerable:      false,
-				VulnerabilityType: "",
-				Details:           "",
-			}
-		}
 	}
 
 	// Check each IP for known vulnerable patterns
@@ -249,12 +238,14 @@ func (th TakeHandler) checkSubdomainTakeover(domain string, resp *dns.Msg) *Chec
 
 	// Check using registered takeover checkers
 	for _, checker := range th.Config.takeoverCheckers {
-		vulnerable, details, err := checker.Check(domain)
-		if err == nil && vulnerable {
-			return &CheckResult{
-				IsVulnerable:      true,
-				VulnerabilityType: checker.Name(),
-				Details:           details,
+		for _, name := range cnames {
+			vulnerable, details, err := checker.Check(name)
+			if err == nil && vulnerable {
+				return &CheckResult{
+					IsVulnerable:      true,
+					VulnerabilityType: checker.Name(),
+					Details:           details,
+				}
 			}
 		}
 	}

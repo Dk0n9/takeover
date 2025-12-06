@@ -50,7 +50,7 @@ takeover是一个CoreDNS插件，用于检测域名是否过期或可能存在�
     takeover {
         check_resolved on
         check_takeover on
-        cache_ttl 1h
+        cache_ttl 24h
     }
 }
 ```
@@ -64,7 +64,7 @@ takeover是一个CoreDNS插件，用于检测域名是否过期或可能存在�
     takeover {
         check_resolved on
         check_takeover on
-        cache_ttl 1d
+        cache_ttl 24h
         webhook_url https://oapi.dingtalk.com/robot/send?access_token=your_token
         webhook_type dingtalk
     }
@@ -80,7 +80,7 @@ takeover是一个CoreDNS插件，用于检测域名是否过期或可能存在�
     takeover {
         check_resolved on
         check_takeover on
-        cache_ttl 1d
+        cache_ttl 24h
         webhook_url https://open.feishu.cn/open-apis/bot/v2/hook/your_webhook_key
         webhook_type feishu
     }
