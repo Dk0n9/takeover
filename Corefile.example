@@ -1,6 +1,5 @@
 .:53 {
     log
-    forward . 8.8.8.8 1.1.1.1
     takeover {
         check_resolved on
         check_takeover on
@@ -8,4 +7,5 @@
         webhook_url https://your-webhook-url.com/notify
         webhook_type dingtalk
     }
+    forward . 8.8.8.8 1.1.1.1
 }

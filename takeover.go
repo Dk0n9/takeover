@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/nonwriter"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/miekg/dns"
 )
 
@@ -97,10 +97,8 @@ func (th TakeHandler) Name() string {
 
 // ServeDNS implements the TakeHandler interface.
 func (th TakeHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	// Create a non-writer to capture the response from the next plugin
-	nw := nonwriter.New(w)
 	// Call the next plugin in the chain
-	rcode, err := plugin.NextOrFailure(th.Name(), th.Next, ctx, nw, r)
+	rcode, err := plugin.NextOrFailure(th.Name(), th.Next, ctx, w, r)
 	if err != nil {
 		fmt.Printf("Rcode: %d Error: %s\n", rcode, err)
 		return rcode, err
@@ -111,7 +109,7 @@ func (th TakeHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns
 	domain = strings.TrimSuffix(domain, ".")
 
 	// Process the response
-	resp := nw.Msg
+	resp := w.(*dnstest.Recorder).Msg
 
 	// Check if we need to add domain check results
 	if th.Config.CheckResolved || th.Config.CheckTakeover {
@@ -121,11 +119,6 @@ func (th TakeHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns
 		currentTime := time.Now()
 
 		if !found || entry.ExpiresAt.Before(currentTime) {
-			// Instead of performing checks synchronously, we'll:
-			// 1. Return a default response immediately
-			// 2. Perform checks asynchronously in the background
-			// 3. Update the cache with actual results for future requests
-
 			// Create a temporary entry with default values while we perform background checks
 			tempEntry := cacheEntry{
 				ResolvedCheckResult: &ResolvedCheckResult{},
@@ -138,20 +131,8 @@ func (th TakeHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns
 
 			// Perform checks asynchronously, passing the DNS response
 			go th.performAsyncChecks(domain, cacheKey, resp)
-
-			// Use the temporary entry for this request
-			entry = tempEntry
-		}
-
-		// Send webhook notification if a problem is detected
-		if (entry.ResolvedCheckResult != nil && (entry.ResolvedCheckResult.IsResolved || entry.ResolvedCheckResult.IsWarning)) ||
-			(entry.TakeoverCheckResult != nil && entry.TakeoverCheckResult.IsVulnerable) {
-			go th.sendWebhookNotification(domain, entry.ResolvedCheckResult, entry.TakeoverCheckResult)
 		}
 	}
-
-	// Write the modified response
-	w.WriteMsg(resp)
 	return rcode, nil
 }
 
@@ -400,10 +381,8 @@ func (th TakeHandler) formatDingTalkPayload(domain string, resolvedResult *Resol
 	content := fmt.Sprintf("Domain Takeover Alert\nDomain: %s\nTime: %s\n", domain, time.Now().Format(time.RFC3339))
 
 	// Add resolved information if available
-	if resolvedResult != nil {
-		if resolvedResult.IsWarning {
-			content += "Takeover Warning: Domain may be unresolve\n"
-		}
+	if resolvedResult != nil && resolvedResult.IsWarning {
+		content += "Takeover Warning: Domain may be unresolve\n"
 	}
 
 	// Add takeover information if available
@@ -457,9 +436,7 @@ func (th TakeHandler) formatFeishuPayload(domain string, resolvedResult *Resolve
 // performAsyncChecks performs domain expiration and takeover checks in the background
 func (th TakeHandler) performAsyncChecks(domain, cacheKey string, resp *dns.Msg) {
 	// Perform new checks
-	entry := cacheEntry{
-		ExpiresAt: time.Now().Add(th.Config.CacheTTL),
-	}
+	entry := cache[cacheKey]
 
 	if th.Config.CheckResolved {
 		entry.ResolvedCheckResult = th.checkDomainResolved(domain, resp)
@@ -473,7 +450,7 @@ func (th TakeHandler) performAsyncChecks(domain, cacheKey string, resp *dns.Msg)
 	cache[cacheKey] = entry
 
 	// Send webhook notification if a problem is detected
-	if (entry.ResolvedCheckResult != nil && (entry.ResolvedCheckResult.IsResolved || entry.ResolvedCheckResult.IsWarning)) ||
+	if (entry.ResolvedCheckResult != nil && entry.ResolvedCheckResult.IsWarning) ||
 		(entry.TakeoverCheckResult != nil && entry.TakeoverCheckResult.IsVulnerable) {
 		go th.sendWebhookNotification(domain, entry.ResolvedCheckResult, entry.TakeoverCheckResult)
 	}
